@@ -1,0 +1,30 @@
+# mybatis-demo based on mybatis v3.4.5 附带源码注释
+```
+1.二级缓存对象是全局对象，每个namespace下面的所有MappedStatement共享同一个二级缓存对象
+
+2.mybatis首先解析cache-ref标签(标签内容为另一个namespace的全称)，会设置当前namespace的二级缓存为cache-ref对应namespace的缓存；接着解析cache标签，然后会重新设置二级缓存对象；言外之意就是cache会覆盖cache-ref的配置
+
+3.如果开启了二级缓存，在SqlSession close或commit的时候会将查询数据缓存到二级缓存里面
+
+4.如果开启了二级缓存，每次insert/update/delete则会清除当前session前面已经缓存起来的entriesToAddOnCommit数据(这部分数据还未写入到二级缓存里面，需要等到SqlSession close或commit的时候才会写入到二级缓存里面)
+
+5.如果开启了二级缓存，查询的时候先从二级缓存里面找，如果没找到则从一级缓存里面找，如果还没找到则执行查询，并将查询结果存入一级缓存，同时也会把这次的查询数据缓存在entriesToAddOnCommit
+
+6.默认configuration的LocalCacheScope为SESSION，表示同一个Session下面查询的数据都放到一级缓存里面，如果LocalCacheScope为STATEMENT则表示一级缓存不保存数据(保存了数据都会自动清除)
+
+7.在创建DefaultSqlSession之前会创建一个Executor对象，Executor对象是CachingExecutor类型，接着全局configuration的interceptorChain会对这个Executor执行一次pluginAll操作；
+
+接着会创建StatementHandler，这个StatementHandler本质上是RoutingStatementHandler类型，RoutingStatementHandler内部根据StatementType维护了一个delegate(SimpleStatementHandler/PreparedStatementHandler/CallableStatementHandler)，在SimpleStatementHandler/PreparedStatementHandler/CallableStatementHandler构造函数执行过程中会生成ParameterHandler和ResultSetHandler，ParameterHandler和ResultSetHandler也需要做一次interceptorChain.pluginAll；
+
+创建好StatementHandler之后还会执行一次configuration的interceptorChain.pluginAll；
+
+最后执行statement，如PreparedStatementHandler还需要进行预编译
+所以可以自定义一些拦截器实现需要的效果，如分页拦截器
+
+8.mybatis默认是客户端分页，也就是查询出所有符合条件的数据，然后在客户端内存里面分页，会带来很大的网络IO，所以需要我们在服务器端分页，然后再返回给客户端，一般是通过limit(mysql)关键字实现
+
+9.mybatis对#{}的内容安全设置值，防止sql注入，而对于${}的内容则有sql注入风险
+#{} 这种是把sql组装成"select * from table where id = ?"这种格式，然后让数据库预编译，最后设置参数执行
+${} 这种是把参数值和sql一起组装成"select * from table where id = 1"这种格式，然后让数据库预编译，最后执行时也不需要重新设置参数了，所以会造成sql注入
+```
+
