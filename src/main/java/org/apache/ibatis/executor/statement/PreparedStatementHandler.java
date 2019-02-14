@@ -50,7 +50,9 @@ public class PreparedStatementHandler extends BaseStatementHandler {
 
   /**
    * 1.执行PreparedStatement的execute，返回update修改的rowCount
-   * 2.如果某些数据库执行完之后没法自动返回主键，则需要执行keyGenerator.processAfter进行查询一次主键，不过默认keyGenerator是NoKeyGenerator
+   * 2.insert类型的MappedStatement默认keyGenerator是NoKeyGenerator，如果设置了useGeneratedKeys为true，则keyGenerator是Jdbc3KeyGenerator
+   * 3.其余select/update/delete类型的MappedStatement的keyGenerator永远是NoKeyGenerator，详情参考{@link org.apache.ibatis.builder.xml.XMLStatementBuilder#parseStatementNode()}
+   * 4.执行insert之后需要返回主键，则需要执行keyGenerator.processAfter进行查询一次主键，NoKeyGenerator的processAfter方法是空方法，啥都不干
    */
   @Override
   public int update(Statement statement) throws SQLException {

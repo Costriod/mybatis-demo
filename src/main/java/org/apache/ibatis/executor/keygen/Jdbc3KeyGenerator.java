@@ -52,6 +52,9 @@ public class Jdbc3KeyGenerator implements KeyGenerator {
     // do nothing
   }
 
+  /***
+   * 读取Statement返回的generatedKeys，接着根据keyProperties等信息将主键值set到传入的实体类参数里面去
+   */
   @Override
   public void processAfter(Executor executor, MappedStatement ms, Statement stmt, Object parameter) {
     processBatch(ms, stmt, getParameters(parameter));

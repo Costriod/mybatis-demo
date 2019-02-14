@@ -128,6 +128,7 @@ public class XMLStatementBuilder extends BaseBuilder {
     } else {
       keyGenerator = context.getBooleanAttribute("useGeneratedKeys",
           //configuration的useGeneratedKeys默认false，所以默认keyGenerator为NoKeyGenerator
+          //只有insert语句，并且还设置了useGeneratedKeys=true才会是Jdbc3KeyGenerator
           configuration.isUseGeneratedKeys() && SqlCommandType.INSERT.equals(sqlCommandType))
           ? Jdbc3KeyGenerator.INSTANCE : NoKeyGenerator.INSTANCE;
     }
