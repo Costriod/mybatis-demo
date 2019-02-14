@@ -36,7 +36,10 @@ import org.apache.ibatis.session.RowBounds;
 import org.apache.ibatis.transaction.Transaction;
 
 /**
- * @author Jeff Butler 
+ * 这个类比较特殊，doUpdate并不是真的执行sql语句，仅仅是让Statement.addBatch(sql)或PreparedStatement.addBatch()临时把sql缓存起来，
+ * 真正执行的地方是在doFlushStatements方法里面，唯一能触发这个方法的地方是SqlSession的flushStatements方法，当然SqlSession.commit()也会自动触发flushStatements
+ * 用户可以手工执行SqlSession.flushStatements()或者等待SqlSession.commit()，需要注意一点，如果是那种插入数据之后需要获取主键ID的情况下则必须执行flushStatements方法后才能获取到主键
+ * @author Jeff Butler
  */
 public class BatchExecutor extends BaseExecutor {
 
