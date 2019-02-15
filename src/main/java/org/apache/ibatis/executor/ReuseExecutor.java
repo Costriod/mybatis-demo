@@ -34,6 +34,8 @@ import org.apache.ibatis.session.RowBounds;
 import org.apache.ibatis.transaction.Transaction;
 
 /**
+ * 1.这个类和SimpleExecutor的区别主要是会将Statement缓存到statementMap里面，key为带"?"占位符的sql，value为Statement对象
+ * 2.执行sql之前先从statementMap里面找，找不到则通过connection创建Statement，一个SqlSession对应一个Executor，所以同一个SqlSession才会复用Statement
  * @author Clinton Begin
  */
 public class ReuseExecutor extends BaseExecutor {
