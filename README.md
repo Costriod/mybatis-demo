@@ -29,3 +29,83 @@
 #{} 这种是把sql组装成"select * from table where id = ?"这种格式，然后让数据库预编译，最后设置参数执行
 ${} 这种是把参数值和sql一起组装成"select * from table where id = 1"这种格式，然后让数据库预编译，最后执行时也不需要重新设置参数了，所以会造成sql注入
 ```
+
+- mybatis分页拦截器实现
+
+原理configuration有一个interceptorChain，分别在以下3种情况下会使用拦截器链对一些对象做一些后置处理工作
+
+- SqlSession创建Executor之后会执行一次interceptorChain.pluginAll(executor)
+- configuration创建RoutingStatementHandler，执行构造函数过程中会初始化delegate对象，delegate对象初始化的构造函数会创建parameterHandler和resultSetHandler，创建parameterHandler和resultSetHandler的过程中都会执行一次interceptorChain.pluginAll(parameterHandler)和interceptorChain.pluginAll(resultSetHandler)
+- configuration创建RoutingStatementHandler之后会执行一次interceptorChain.pluginAll(statementHandler)，此时statement还没发送到数据库服务器执行预编译
+
+所以可以针对这几个环节做一些拦截操作，mybatis拦截器就是在这里为专用的几个类对象生成一个动态代理，然后执行一些自定义操作，这里一般ResultSetHandler的rowBounds都是默认值，但不排除有些人使用了RowBounds实现内存分页（内存分页需要查询出所有数据，然后在内存中一行一行翻页获取目标内容，性能太低，一般都是通过limit在服务端分页），所以这里强制将rowBounds设为默认值，然后利用limit在服务端分页
+
+```java
+import java.sql.Connection;
+import java.sql.Statement;
+import java.util.Properties;
+
+import org.apache.ibatis.executor.resultset.DefaultResultSetHandler;
+import org.apache.ibatis.executor.resultset.ResultSetHandler;
+import org.apache.ibatis.executor.statement.PreparedStatementHandler;
+import org.apache.ibatis.executor.statement.RoutingStatementHandler;
+import org.apache.ibatis.executor.statement.StatementHandler;
+import org.apache.ibatis.mapping.BoundSql;
+import org.apache.ibatis.plugin.Interceptor;
+import org.apache.ibatis.plugin.Intercepts;
+import org.apache.ibatis.plugin.Invocation;
+import org.apache.ibatis.plugin.Plugin;
+import org.apache.ibatis.plugin.Signature;
+import org.apache.ibatis.session.RowBounds;
+
+@Intercepts({ @Signature(type = StatementHandler.class, method = "prepare", args = { Connection.class, Integer.class }),
+		@Signature(type = ResultSetHandler.class, method = "handleResultSets", args = { Statement.class }) })
+public class PageInterceptor implements Interceptor {
+
+	public Object intercept(Invocation invocation) throws Throwable {
+		if (invocation.getTarget() instanceof StatementHandler) {
+			RoutingStatementHandler statement = (RoutingStatementHandler) invocation.getTarget();
+			PreparedStatementHandler handler = (PreparedStatementHandler) ReflectUtil.getFieldValue(statement,"delegate");//通过反射工具类获取值，反射工具类百度一大堆
+			RowBounds rowBounds = (RowBounds) ReflectUtil.getFieldValue(handler, "rowBounds");
+			if (rowBounds.getLimit() > 0 && rowBounds.getLimit() < RowBounds.NO_ROW_LIMIT) {
+				BoundSql boundSql = statement.getBoundSql();
+				String sql = boundSql.getSql();
+				sql = getLimitString(sql, rowBounds.getOffset(), rowBounds.getLimit());
+				ReflectUtil.setFieldValue(boundSql, "sql", sql);
+			}
+			return invocation.proceed();
+		} else if (invocation.getTarget() instanceof ResultSetHandler) {
+			DefaultResultSetHandler resultSet = (DefaultResultSetHandler) invocation.getTarget();
+			RowBounds rowBounds = (RowBounds) ReflectUtil.getFieldValue(resultSet, "rowBounds");
+			if (rowBounds.getLimit() > 0 && rowBounds.getLimit() < RowBounds.NO_ROW_LIMIT) {
+				ReflectUtil.setFieldValue(resultSet, "rowBounds", new RowBounds());
+			}
+			return invocation.proceed();
+		} else {
+			return null;
+		}
+	}
+
+	public Object plugin(Object target) {
+		return Plugin.wrap(target, this);
+	}
+	
+	public void setProperties(Properties arg0) {
+		
+	}
+
+	/**
+	 * 组装分页sql语句, 各个数据库分页语句规范不一样, 如MySQL的分页是这样的：select * from A limit 0,20(limit 0,20表示从第1页开始，每页20条记录)
+	 * offset参数是页偏移量, 如你要查询第1页, 每页20条数据：getLimitString(String sql, int 1, int 20), sql就是你的查询语句
+	 */
+	public String getLimitString(String sql, int offset, int limit) {
+		sql = sql.trim();
+		int offset = offset - 1;
+		StringBuffer statement = new StringBuffer(sql.length() + 100);
+		statement.append(sql);
+		/**此处limit左右两边的空格不要删掉了，这个空格是用来和sql组装成分页的sql*/
+		statement.append(" limit " + offset + "," + limit);
+		return statement.toString();
+	}
+}
+```
