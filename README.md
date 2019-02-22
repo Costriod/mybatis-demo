@@ -78,7 +78,7 @@ public class PageInterceptor implements Interceptor {
 			DefaultResultSetHandler resultSet = (DefaultResultSetHandler) invocation.getTarget();
 			RowBounds rowBounds = (RowBounds) ReflectUtil.getFieldValue(resultSet, "rowBounds");
 			if (rowBounds.getLimit() > 0 && rowBounds.getLimit() < RowBounds.NO_ROW_LIMIT) {
-				ReflectUtil.setFieldValue(resultSet, "rowBounds", new RowBounds());
+				ReflectUtil.setFieldValue(resultSet, "rowBounds", RowBounds.DEFAULT);
 			}
 			return invocation.proceed();
 		} else {
