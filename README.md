@@ -82,7 +82,7 @@ public class PageInterceptor implements Interceptor {
 			}
 			return invocation.proceed();
 		} else {
-			return null;
+			return invocation.proceed();
 		}
 	}
 
