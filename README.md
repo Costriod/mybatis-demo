@@ -8,7 +8,7 @@
 
 3.如果开启了二级缓存，在SqlSession close或commit的时候会将查询数据缓存到二级缓存里面
 
-4.如果开启了二级缓存，每次insert/update/delete则会清除当前session前面已经缓存起来的entriesToAddOnCommit数据(这部分数据还未写入到二级缓存里面，需要等到SqlSession close或commit的时候才会写入到二级缓存里面)
+4.如果开启了二级缓存，insert/update/delete默认都会开启flushCache为true，每次insert/update/delete则会清除当前session前面已经缓存起来的entriesToAddOnCommit数据(这部分数据还未写入到二级缓存里面，需要等到SqlSession close或commit的时候才会写入到二级缓存里面)，同时也会将二级缓存清空
 
 5.如果开启了二级缓存，查询的时候先从二级缓存里面找，如果没找到则从一级缓存里面找，如果还没找到则执行查询，并将查询结果存入一级缓存，同时也会把这次的查询数据缓存在entriesToAddOnCommit
 
